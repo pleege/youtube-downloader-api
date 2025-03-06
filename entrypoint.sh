@@ -1,6 +1,14 @@
 #!/bin/sh
 echo "starting youtube downloader ..."
 
+if [ ! -d ".git" ]; then
+  echo "首次运行，执行 git clone ..."
+  git clone git@github.com:pleege/youtube-downloader-api.git .
+else
+  echo "拉取最新代码 ..."
+  git pull
+fi
+
 echo "当前环境IP：$(curl -s https://flyare.azurewebsites.net/ip)"
 python3 -u main.py > >(tee log.txt) 2>&1
 # python3 -u main.py
