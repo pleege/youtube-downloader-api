@@ -399,6 +399,9 @@ def youtube_download():
                 ydl.download([url])
         except yt_dlp.utils.DownloadError as e:
             error_str = str(e).lower()  # 转换为小写以进行更可靠的匹配
+            logger.info("-" * 100)
+            logger.info(error_str)
+            logger.info("-" * 100)
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
                 
