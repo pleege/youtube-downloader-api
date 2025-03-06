@@ -24,8 +24,8 @@ def setup_logging():
     
     # 设置日志格式
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%m-%d %H:%M:%S'
     )
     console_handler.setFormatter(formatter)
     
@@ -44,14 +44,15 @@ app = Flask(__name__)
 def before_request():
     g.start_time = time.time()
 
-# 添加请求后钩子，记录处理时间
+# 修改请求后钩子，只对非流式响应记录处理时间
 @app.after_request
 def after_request(response):
     if hasattr(g, 'start_time'):
         elapsed_time = time.time() - g.start_time
         # 只对非流式响应记录处理时间
-        if not response.direct_passthrough:
-            logger.info(f"请求: {request.path} | 状态码: {response.status_code} | 处理时间: {elapsed_time:.3f}秒")
+        if not response.direct_passthrough:  # 普通响应
+            # logger.info(f"请求: {request.path} | 状态码: {response.status_code} | 处理时间: {elapsed_time:.3f}秒")
+            pass
     return response
 
 # 添加全局变量来存储下载状态
@@ -60,9 +61,10 @@ download_stats = {}
 # 添加全局变量来跟踪进度条状态
 _transfer_progress_bar = None
 
+# 添加新的请求完成钩子
 @app.teardown_request
 def teardown_request(exception=None):
-    """在请求结束时清理资源"""
+    """在请求完全结束时（包括流式传输完成后）清理资源"""
     global _transfer_progress_bar
     
     # 清理进度条
@@ -73,7 +75,9 @@ def teardown_request(exception=None):
     # 清理下载统计信息
     if request.endpoint == 'youtube_download' and request.path in download_stats:
         stats = download_stats[request.path]
-        if not stats.get('completed', False):  # 只有在未完成时才记录
+        if stats.get('completed', False):  # 只在成功完成时记录
+            logger.info(f"数据传输已完成 - 路径: {request.path}")
+        else:
             logger.info(f"下载请求被中断 - 路径: {request.path}")
         del download_stats[request.path]  # 清理统计信息
 
@@ -83,21 +87,19 @@ def generate_file(temp_path, request_path, video_id):
     file_size_local = os.path.getsize(temp_path)
     bytes_sent = 0
     start_time = time.time()
+    first_chunk_sent = False
+    progress_bar_initialized = False
     
     # 确保之前的进度条被清理
     if _transfer_progress_bar:
         _transfer_progress_bar.close()
         _transfer_progress_bar = None
     
-    # 创建新的进度条
-    _transfer_progress_bar = tqdm(
-        total=file_size_local,
-        unit='B',
-        unit_scale=True,
-        ascii=True,
-        ncols=80,
-        mininterval=0.1,
-        desc=f"传输进度 [{video_id}]"
+    # 先记录传输开始的统计信息
+    logger.info(
+        f"开始文件传输 - ID: {video_id} | "
+        f"路径: {request_path} | "
+        f"文件大小: {file_size_local/1024/1024:.2f}MB"
     )
     
     try:
@@ -106,6 +108,31 @@ def generate_file(temp_path, request_path, video_id):
                 chunk = f.read(chunk_size)
                 if not chunk:
                     break
+                
+                # 先发送第一个数据块
+                if not first_chunk_sent:
+                    first_chunk_sent = True
+                    bytes_sent += len(chunk)
+                    yield chunk
+                    continue
+                
+                # 在第二个数据块之前初始化进度条
+                if not progress_bar_initialized and file_size_local > 0:  # 添加文件大小检查
+                    _transfer_progress_bar = tqdm(
+                        total=file_size_local,
+                        unit='B',
+                        unit_scale=True,
+                        ascii=True,  # 改用 ASCII 字符而不是 Unicode
+                        ncols=90,
+                        mininterval=0.1,
+                        desc=f"传输进度 [{video_id}]",
+                        leave=True,
+                        bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} ({rate_fmt}) [{elapsed}]'
+                    )
+                    # 更新已发送的第一个数据块的进度
+                    _transfer_progress_bar.update(bytes_sent)
+                    progress_bar_initialized = True
+                
                 bytes_sent += len(chunk)
                 if _transfer_progress_bar:
                     _transfer_progress_bar.update(len(chunk))
@@ -120,14 +147,6 @@ def generate_file(temp_path, request_path, video_id):
         if _transfer_progress_bar:
             _transfer_progress_bar.close()
             _transfer_progress_bar = None
-        
-        logger.info(
-            f"下载请求完成 - ID: {video_id} | "
-            f"路径: {request_path} | "
-            f"传输文件大小: {file_size_local/1024/1024:.2f}MB | "
-            f"总用时: {total_time:.2f}秒 | "
-            f"平均传输速度: {avg_speed:.2f}MB/s"
-        )
         
         # 标记为已完成
         if request_path in download_stats:
@@ -347,48 +366,77 @@ def youtube_download():
         url = f"https://www.youtube.com/watch?v={video_id}"
         logger.info(f"开始处理YouTube视频下载请求 - ID: {video_id} | URL: {url} | 格式: {format_str}")
 
-        temp_dir = tempfile.mkdtemp()
+        # 使用固定的临时目录
+        temp_dir = "/tmp/youtube"
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
         temp_path = os.path.join(temp_dir, f"{video_id}.mp4")
-        logger.info(f"创建临时目录 - ID: {video_id} | 路径: {temp_dir}")
+        logger.info(f"使用临时目录 - ID: {video_id} | 路径: {temp_dir}")
+
+        # 修改进度条逻辑
+        progress_bar = None
+        total_bytes = 0
+        current_file = None
+        downloaded_streams = set()  # 用于跟踪已下载完成的流
         
         def progress_hook(d):
-            downloaded = d.get('downloaded_bytes', 0)
-            total = d.get('total_bytes', 0) or 0
-            speed = d.get('speed', 0)
+            nonlocal progress_bar, total_bytes, current_file, downloaded_streams
             
-            if not hasattr(progress_hook, 'pbar'):
-                progress_hook.pbar = tqdm(
-                    total=total,
-                    unit='B',
-                    unit_scale=True,
-                    desc=f"下载进度 [{video_id}]",
-                    ncols=80,
-                    ascii=True,
-                    mininterval=0.1,
-                    dynamic_ncols=False,
-                    file=sys.stderr
-                )
+            if d['status'] == 'downloading':
+                # 获取当前下载的文件信息
+                format_id = d.get('info_dict', {}).get('format_id', '')
+                vcodec = d.get('info_dict', {}).get('vcodec', '')
+                acodec = d.get('info_dict', {}).get('acodec', '')
+                
+                # 判断是视频流还是音频流
+                stream_type = "视频" if vcodec != 'none' else "音频" if acodec != 'none' else "未知"
+                
+                # 如果是新的文件，更新进度条
+                if format_id != current_file:
+                    current_file = format_id
+                    if progress_bar:
+                        progress_bar.close()
+                    total_bytes = d.get('total_bytes', 0) or d.get('total_bytes_estimate', 0)
+                    progress_bar = tqdm(
+                        total=total_bytes,
+                        unit='B',
+                        unit_scale=True,
+                        desc=f"下载{stream_type}流 [{video_id}] (格式: {format_id})",
+                        ncols=90,
+                        ascii=True,
+                        mininterval=0.1,
+                        bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} ({rate_fmt}) [{elapsed}]'
+                    )
+                
+                # 更新进度
+                if progress_bar:
+                    downloaded = d.get('downloaded_bytes', 0)
+                    progress_bar.update(downloaded - progress_bar.n)
             
-            increment = downloaded - progress_hook.pbar.n
-            if increment > 0:
-                progress_hook.pbar.update(increment)
-                progress_hook.pbar.refresh()
-            
-            if d.get('status') == 'finished':
-                progress_hook.pbar.close()
-                delattr(progress_hook, 'pbar')
+            elif d['status'] == 'finished':
+                if progress_bar:
+                    progress_bar.close()
+                    progress_bar = None
+                
+                # 记录已完成的流
+                if current_file:
+                    downloaded_streams.add(current_file)
+                    
+                # 如果是分开的视频和音频流，检查是否都已下载完成
+                if '+' in format_str:
+                    expected_streams = set(format_str.split('+'))
+                    if downloaded_streams == expected_streams:
+                        logger.info("开始合并MP4视频...")
         
         ydl_opts = {
             'format': format_str,
             'merge_output_format': 'mp4',
             'quiet': True,
             'no_warnings': True,
-            'noprogress': True,
+            'noprogress': True,  # 禁用内置进度条显示
             'outtmpl': temp_path,
             'progress_hooks': [progress_hook],
             'cookiefile': 'cookies.txt',
-            'logger': None,
-            'no_color': True
         }
 
         start_time = time.time()
@@ -417,12 +465,20 @@ def youtube_download():
                     'errcode': 901,
                     'msg': f"视频下载失败: {str(e).split('\n')[0]}"
                 })
-
+            
         file_size = os.path.getsize(temp_path)
         download_time = time.time() - start_time
         avg_speed = file_size / (1024 * 1024 * download_time) if download_time > 0 else 0
             
-        logger.info(f"视频下载完成: 文件大小={file_size/1024/1024:.2f}MB, 用时={download_time:.2f}秒, 平均速度={avg_speed:.2f}MB/s")
+        logger.info(f"视频合并完成: 文件大小={file_size/1024/1024:.2f}MB, 用时={download_time:.2f}秒, 平均速度={avg_speed:.2f}MB/s")
+
+        def cleanup():
+            try:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    logger.info(f"已清理临时文件 - ID: {video_id} | 路径: {temp_path}")
+            except Exception as e:
+                logger.error(f"清理临时文件失败 - ID: {video_id} | 错误: {str(e)}")
 
         response = Response(
             stream_with_context(generate_file(temp_path, request.path, video_id)),
@@ -430,20 +486,36 @@ def youtube_download():
         )
         response.headers['Content-Disposition'] = f'attachment; filename="{video_id}.mp4"'
         response.headers['Content-Length'] = os.path.getsize(temp_path)
+        
+        # 注册回调函数，在响应结束后清理文件
+        response.call_on_close(cleanup)
 
         return response
 
     except Exception as e:
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        error_msg = str(e).split('\n')[0]
-        logger.error(f"视频下载失败 - ID: {video_id} | 错误: {error_msg}")
-        return jsonify({'errcode': 900, 'msg': f"视频下载失败: {error_msg}"})
+        # 发生错误时也要清理临时文件
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+                logger.info(f"已清理临时文件 - ID: {video_id} | 路径: {temp_path}")
+            except Exception as cleanup_error:
+                logger.error(f"清理临时文件失败 - ID: {video_id} | 错误: {str(cleanup_error)}")
+        
+        logger.error(f"视频下载失败 - ID: {video_id} | 错误: {str(e)}", exc_info=True)
+        return jsonify({'errcode': 900, 'msg': f"视频下载失败: {str(e)}"})
 
 if __name__ == "__main__":
+    # 清理并重建临时目录
+    temp_dir = "/tmp/youtube"
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
+    logger.info(f"已清理并重建临时目录: {temp_dir}")
+    
     # 禁用自动重载，避免文件变动时中断下载任务
     app.run(host="0.0.0.0", port=80, debug=True, use_reloader=True)
 
 
 
-# pot: MluaqJzwZJwropqQCHKuJi2nOQBq_C2OzhPbBh-MnJRLOGrL2gxhPH93CjDrU4E8ssqAQIKL7rlTPl_rh8zFTCQJSdkTUdVlwk7qxRlYXdtgEghMRmHvn96_CPfT
+
+        
