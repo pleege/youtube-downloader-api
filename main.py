@@ -405,10 +405,10 @@ def youtube_download():
             logger.info("sign in to confirm" in error_str)
             logger.info("-" * 100)
             if "sign in to confirm" in error_str:  # 简化匹配条件
-                logger.warning(f"YouTube需要授权 - ID: {video_id}")
+                logger.error(f"YouTube需要授权访问,可能cookies.txt文件配置错误")
                 return jsonify({
                     'errcode': 403,
-                    'msg': "需要YouTube授权，请确保已正确配置cookies.txt文件"
+                    'msg': "需要YouTube授权，请联系管理员!"
                 })
             else:
                 # 直接返回下载错误，而不是raise
