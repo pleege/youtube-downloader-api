@@ -398,12 +398,27 @@ def youtube_download():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except yt_dlp.utils.DownloadError as e:
-            if "Sign in to confirm you're not a bot" in str(e):
+            error_str = str(e).lower()  # 转换为小写以进行更可靠的匹配
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+                
+            if any(phrase in error_str for phrase in [
+                "sign in to confirm you're not a bot",
+                "please sign in",
+                "please authenticate"
+            ]):
+                logger.warning(f"YouTube需要授权 - ID: {video_id}")
                 return jsonify({
-                    'errcode': 403, 
+                    'errcode': 403,
                     'msg': "需要YouTube授权，请确保已正确配置cookies.txt文件"
                 })
-            raise
+            else:
+                # 直接返回下载错误，而不是raise
+                logger.error(f"下载错误 - ID: {video_id} | 错误: {str(e)}")
+                return jsonify({
+                    'errcode': 901,
+                    'msg': f"视频下载失败: {str(e).split('\n')[0]}"
+                })
 
         file_size = os.path.getsize(temp_path)
         download_time = time.time() - start_time
