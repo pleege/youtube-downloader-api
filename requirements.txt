@@ -1,0 +1,4 @@
+flask
+yt_dlp
+requests
+tqdm
