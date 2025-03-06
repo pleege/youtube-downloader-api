@@ -395,6 +395,7 @@ def youtube_download():
         logger.info("开始下载视频...")
             
         try:
+            logger.info("*" * 100)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except Exception as e:
