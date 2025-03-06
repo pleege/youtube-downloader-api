@@ -449,9 +449,6 @@ def youtube_download():
             error_str = str(e).lower()  # 转换为小写以进行更可靠的匹配
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
-            logger.info("-" * 100)
-            logger.info("sign in to confirm" in error_str)
-            logger.info("-" * 100)
             if "sign in to confirm" in error_str:  # 简化匹配条件
                 logger.error(f"YouTube需要授权访问,可能cookies.txt文件配置错误")
                 return jsonify({
