@@ -7,6 +7,7 @@ if [ ! -d ".git" ]; then
   git remote add origin https://github.com/pleege/youtube-downloader-api.git
   git fetch --depth=1 origin main
   git reset --hard origin/main
+  git branch --set-upstream-to=origin/main master
 else
   echo "拉取最新代码 ..."
   git pull
