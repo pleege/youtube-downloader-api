@@ -397,7 +397,7 @@ def youtube_download():
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-        except yt_dlp.utils.DownloadError as e:
+        except Exception as e:
             error_str = str(e).lower()  # 转换为小写以进行更可靠的匹配
             logger.info("-" * 100)
             logger.info(error_str)
