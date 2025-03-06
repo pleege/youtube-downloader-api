@@ -11,6 +11,7 @@ if [ ! -d ".git" ]; then
 else
   echo "拉取最新代码 ..."
   git pull
+  echo "拉取最新代码完成"
 fi
 
 echo "当前环境IP：$(curl -s https://flyare.azurewebsites.net/ip)"
