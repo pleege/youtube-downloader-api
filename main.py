@@ -507,7 +507,7 @@ if __name__ == "__main__":
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
-    logger.info(f"已清理并重建临时目录: {temp_dir}")
+    logger.info(f"-----已清理并重建临时目录: {temp_dir}")
     
     # 禁用自动重载，避免文件变动时中断下载任务
     app.run(host="0.0.0.0", port=80, debug=True, use_reloader=True)
