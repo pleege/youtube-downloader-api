@@ -17,6 +17,7 @@ RUN apk add --no-cache git ffmpeg curl supervisor && \
     pip install --no-cache-dir -r /tmp/requirements.txt && \
     mkdir -p /etc/supervisor.d && \
     chmod +x /entrypoint.sh && \
+    git config --global --add safe.directory /deploy && \
     rm -rf /tmp/* /var/cache/apk/*
 
 # 暴露端口
