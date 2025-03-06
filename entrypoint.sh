@@ -4,7 +4,7 @@ echo "starting youtube downloader ..."
 if [ ! -d ".git" ]; then
   echo "首次运行，执行 git clone ..."
   git init .
-  git remote add origin git@github.com:pleege/youtube-downloader-api.git
+  git remote add origin https://github.com/pleege/youtube-downloader-api.git
   git fetch --depth=1 origin main
   git reset --hard origin/main
 else
