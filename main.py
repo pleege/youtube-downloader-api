@@ -345,7 +345,7 @@ def youtube_download():
             return jsonify({'errcode': 400, 'msg': "缺少format参数"})
 
         url = f"https://www.youtube.com/watch?v={video_id}"
-        logger.info(f"xxx开始处理YouTube视频下载请求 - ID: {video_id} | URL: {url} | 格式: {format_str}")
+        logger.info(f"开始处理YouTube视频下载请求 - ID: {video_id} | URL: {url} | 格式: {format_str}")
 
         temp_dir = tempfile.mkdtemp()
         temp_path = os.path.join(temp_dir, f"{video_id}.mp4")
@@ -395,18 +395,16 @@ def youtube_download():
         logger.info("开始下载视频...")
             
         try:
-            logger.info("*" * 100)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-        except Exception as e:
+        except yt_dlp.utils.DownloadError as e:
             error_str = str(e).lower()  # 转换为小写以进行更可靠的匹配
-            logger.info("-" * 100)
-            logger.info(error_str)
-            logger.info("-" * 100)
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
-                
-            if "sign in to confirm you're not a bot" in error_str:  # 简化匹配条件
+            logger.info("-" * 100)
+            logger.info("sign in to confirm" in error_str)
+            logger.info("-" * 100)
+            if "sign in to confirm" in error_str:  # 简化匹配条件
                 logger.warning(f"YouTube需要授权 - ID: {video_id}")
                 return jsonify({
                     'errcode': 403,
