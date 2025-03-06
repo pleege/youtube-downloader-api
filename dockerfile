@@ -19,7 +19,7 @@ COPY supervisor.ini /etc/supervisor.d/youtube.ini
 
 # 暴露端口
 EXPOSE 80
-ENTRYPOINT ["/bin/sh", "-c", "/deploy/entrypoint.sh"]
+ENTRYPOINT ["entrypoint.sh"]
 
 # 设置容器启动命令
 
