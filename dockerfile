@@ -12,8 +12,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 COPY requirements.txt /tmp/requirements.txt
 ADD entrypoint.sh /deploy/entrypoint.sh
 
-RUN pip install -r /tmp/requirements.txt
-RUN apk update && apk add ffmpeg && apk add curl && apk add supervisor && mkdir -p /etc/supervisor.d && chmod +x /deploy/entrypoint.sh
+RUN pip install -r /tmp/requirements.txt \
+    && apk add git && apk update && apk add ffmpeg && apk add curl && apk add supervisor && mkdir -p /etc/supervisor.d && chmod +x /deploy/entrypoint.sh
 COPY supervisor.ini /etc/supervisor.d/youtube.ini
 
 
