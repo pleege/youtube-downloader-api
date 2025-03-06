@@ -383,18 +383,28 @@ def youtube_download():
             'merge_output_format': 'mp4',
             'quiet': True,
             'no_warnings': True,
-            'noprogress': True,  # 禁用内置进度条显示
+            'noprogress': True,
             'outtmpl': temp_path,
             'progress_hooks': [progress_hook],
             'cookiefile': 'cookies.txt',
+            'logger': None,
+            'no_color': True
         }
 
         start_time = time.time()
         logger.info("开始下载视频...")
             
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-            
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except yt_dlp.utils.DownloadError as e:
+            if "Sign in to confirm you're not a bot" in str(e):
+                return jsonify({
+                    'errcode': 403, 
+                    'msg': "需要YouTube授权，请确保已正确配置cookies.txt文件"
+                })
+            raise
+
         file_size = os.path.getsize(temp_path)
         download_time = time.time() - start_time
         avg_speed = file_size / (1024 * 1024 * download_time) if download_time > 0 else 0
@@ -413,8 +423,9 @@ def youtube_download():
     except Exception as e:
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-        logger.error(f"视频下载失败 - ID: {video_id} | 错误: {str(e)}", exc_info=True)
-        return jsonify({'errcode': 900, 'msg': f"视频下载失败: {str(e)}"})
+        error_msg = str(e).split('\n')[0]
+        logger.error(f"视频下载失败 - ID: {video_id} | 错误: {error_msg}")
+        return jsonify({'errcode': 900, 'msg': f"视频下载失败: {error_msg}"})
 
 if __name__ == "__main__":
     # 禁用自动重载，避免文件变动时中断下载任务
