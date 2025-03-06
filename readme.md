@@ -98,9 +98,12 @@ tqdm
 *   The API exposes port 80, which is mapped to port 8809 on the host. You can change this mapping in the `docker run` command or `docker-compose.yaml` file.
 
 
-* docker build -t ghcr.io/pleege/youtube . --force-rm --no-cache
+```
+# git clone https://github.com/pleege/youtube-downloader-api.git
+# cd youtube-downloader-api
+# docker build -t ghcr.io/pleege/youtube . --force-rm --no-cache
 
-* docker run -itd --name youtube -v /home/ubuntu/cookies.txt:/deploy/cookies.txt -p 8809:80 ghcr.io/pleege/youtube
+# docker run -itd --name youtube -v /home/ubuntu/cookies.txt:/deploy/cookies.txt -p 8809:80 ghcr.io/pleege/youtube
 
-* docker attach youtube
-
+# docker attach youtube
+```
