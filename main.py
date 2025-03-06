@@ -345,7 +345,7 @@ def youtube_download():
             return jsonify({'errcode': 400, 'msg': "缺少format参数"})
 
         url = f"https://www.youtube.com/watch?v={video_id}"
-        logger.info(f"开始处理YouTube视频下载请求 - ID: {video_id} | URL: {url} | 格式: {format_str}")
+        logger.info(f"xxx开始处理YouTube视频下载请求 - ID: {video_id} | URL: {url} | 格式: {format_str}")
 
         temp_dir = tempfile.mkdtemp()
         temp_path = os.path.join(temp_dir, f"{video_id}.mp4")
