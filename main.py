@@ -402,11 +402,7 @@ def youtube_download():
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
                 
-            if any(phrase in error_str for phrase in [
-                "sign in to confirm you're not a bot",
-                "please sign in",
-                "please authenticate"
-            ]):
+            if "sign in to confirm you're not a bot" in error_str:  # 简化匹配条件
                 logger.warning(f"YouTube需要授权 - ID: {video_id}")
                 return jsonify({
                     'errcode': 403,
