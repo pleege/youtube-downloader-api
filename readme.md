@@ -103,7 +103,7 @@ tqdm
 # cd youtube-downloader-api
 # docker build -t ghcr.io/pleege/youtube . --force-rm --no-cache
 
-# docker run -itd --name youtube --restart always -v /home/ubuntu/cookies.txt:/deploy/cookies.txt -p 8809:80 ghcr.io/pleege/youtube
+# docker run -itd --name youtube --restart always -v $(pwd)/cookies.txt:/deploy/cookies.txt -p 8809:80 ghcr.io/pleege/youtube
 # 暴露目录可以方便远程调试
 # docker run -itd --name youtube --restart always -v /home/ubuntu/youtube-downloader-api:/deploy -p 8809:80 ghcr.io/pleege/youtube 
 
