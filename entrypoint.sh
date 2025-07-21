@@ -18,6 +18,7 @@ else
     else
       echo "拉取最新代码 ..."
       git pull
+      pip install -r requirements.txt
       echo "拉取最新代码完成"
     fi
 fi
