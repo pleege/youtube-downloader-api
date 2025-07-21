@@ -1,4 +1,4 @@
-flask
-yt_dlp
-requests
-tqdm
+flask==2.32.3
+yt_dlp==2025.6.30
+requests==2.32.3
+tqdm==4.67.1
